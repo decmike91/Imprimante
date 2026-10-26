@@ -12,11 +12,27 @@ android {
         applicationId = "fr.printmonitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Numéro de compilation GitHub : chaque APK est plus récent que le précédent
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.$build"
+    }
+    // Clé de signature fixe : sans elle, chaque compilation GitHub produit une signature
+    // différente et Android refuse d'installer la mise à jour par-dessus l'ancienne version.
+    signingConfigs {
+        create("fixe") {
+            storeFile = file("printmonitor.keystore")
+            storePassword = "printmonitor"
+            keyAlias = "printmonitor"
+            keyPassword = "printmonitor"
+        }
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        debug { signingConfig = signingConfigs.getByName("fixe") }
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fixe")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
