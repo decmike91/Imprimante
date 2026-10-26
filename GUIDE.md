@@ -161,3 +161,17 @@ Si vous êtes connecté en Wi-Fi chez quelqu'un dont le réseau est aussi en 192
 - Découverte automatique de la Centauri (diffusion UDP `M99999` sur le port 3000).
 - Widget d'écran d'accueil avec la progression.
 - Prise en charge de la Centauri Carbon 2 (MQTT, port 1883) ou d'une K1 rootée via Moonraker (port 7125).
+
+## 8. Caméra K1 après une mise à jour du firmware (root)
+
+Les firmwares K1 récents ne diffusent plus la caméra en MJPEG sur le port 8080. Correctif installé le 26/10/2026 :
+service `/etc/init.d/S59mjpg_streamer` (copie de sauvegarde dans `/usr/data/`), qui relance `mjpg_streamer`
+avec le module `input_memfd.so` à chaque démarrage.
+
+**Après chaque mise à jour du firmware** (qui efface `/etc`), se connecter en SSH (`ssh root@192.168.1.25`) et coller :
+
+```
+cp /usr/data/S59mjpg_streamer /etc/init.d/ && chmod +x /etc/init.d/S59mjpg_streamer && /etc/init.d/S59mjpg_streamer start
+```
+
+Vérification : `http://192.168.1.25:8080/?action=stream` doit afficher l'image.
