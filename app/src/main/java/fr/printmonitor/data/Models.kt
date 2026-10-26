@@ -35,6 +35,8 @@ data class PrinterState(
     val elapsedSec: Long? = null,
     val remainingSec: Long? = null,
     val cameraUrl: String? = null,
+    /** Page caméra de secours (WebRTC Creality, port 8000) si le MJPEG ne répond pas */
+    val cameraFallbackUrl: String? = null,
     val message: String? = null,
     /** null = état inconnu */
     val lightOn: Boolean? = null,

@@ -98,7 +98,7 @@ private fun PrinterCard(id: PrinterId) {
             }
 
             val cam = s.cameraUrl
-            if (cam != null && s.status != PrintStatus.OFFLINE && camOn) MjpegView(cam)
+            if (cam != null && s.status != PrintStatus.OFFLINE && camOn) CameraView(cam, s.cameraFallbackUrl)
             if (cam != null && s.status != PrintStatus.OFFLINE) {
                 TextButton(onClick = { camOn = !camOn }) { Text(if (camOn) "Masquer la caméra" else "Afficher la caméra") }
             }

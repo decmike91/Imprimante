@@ -30,7 +30,13 @@ class CrealityK1Client(
     override val url get() = "ws://$ip:9999"
 
     override fun onOpened() {
-        target.update { it.copy(cameraUrl = cameraOverride.ifBlank { "http://$ip:8080/?action=stream" }) }
+        // Firmwares récents (ex. 1.3.5.22) : plus de MJPEG sur 8080, caméra en WebRTC via http://IP:8000/
+        target.update {
+            it.copy(
+                cameraUrl = cameraOverride.ifBlank { "http://$ip:8080/?action=stream" },
+                cameraFallbackUrl = if (cameraOverride.isBlank()) "http://$ip:8000/" else null,
+            )
+        }
         send(JSONObject().put("method", "get").put("params", JSONObject().put("ReqPrinterPara", 1)).toString())
     }
 

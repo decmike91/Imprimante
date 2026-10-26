@@ -38,8 +38,59 @@ import java.io.ByteArrayOutputStream
  * marqueurs FFD8…FFD9, ce qui fonctionne quel que soit le « boundary » utilisé par la caméra.
  * Le flux est fermé dès que la vue quitte l'écran (important pour l'Elegoo : 1 seul flux).
  */
+/**
+ * Caméra : flux MJPEG, ou page WebRTC (Creality, port 8000) affichée dans une WebView.
+ * Si le MJPEG échoue sans jamais avoir affiché d'image et qu'une URL de secours existe,
+ * on bascule automatiquement sur la page de secours.
+ */
 @Composable
-fun MjpegView(url: String, modifier: Modifier = Modifier) {
+fun CameraView(url: String, fallbackUrl: String?, modifier: Modifier = Modifier) {
+    var useFallback by remember(url, fallbackUrl) { mutableStateOf(false) }
+    val pageUrl = when {
+        isWebPage(url) -> url
+        useFallback && fallbackUrl != null -> fallbackUrl
+        else -> null
+    }
+    if (pageUrl != null) {
+        WebCameraView(pageUrl, modifier)
+    } else {
+        MjpegView(url, modifier, onFirstFailure = if (fallbackUrl != null) ({ useFallback = true }) else null)
+    }
+}
+
+/** Une URL qui n'a pas l'air d'un flux MJPEG est traitée comme une page web (ex. http://IP:8000/). */
+private fun isWebPage(url: String): Boolean {
+    val u = url.lowercase()
+    return !(u.contains("action=stream") || u.contains("/video") || u.contains("mjpg") || u.contains("mjpeg") || u.contains("stream"))
+}
+
+@android.annotation.SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun WebCameraView(url: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                android.webkit.WebView(ctx).apply {
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    webViewClient = android.webkit.WebViewClient()
+                    webChromeClient = android.webkit.WebChromeClient()
+                    loadUrl(url)
+                }
+            },
+            update = { if (it.url != url && it.originalUrl != url) it.loadUrl(url) },
+            onRelease = { it.stopLoading(); it.destroy() },
+        )
+    }
+}
+
+@Composable
+fun MjpegView(url: String, modifier: Modifier = Modifier, onFirstFailure: (() -> Unit)? = null) {
     var frame by remember(url) { mutableStateOf<ImageBitmap?>(null) }
     var error by remember(url) { mutableStateOf<String?>(null) }
 
@@ -51,6 +102,10 @@ fun MjpegView(url: String, modifier: Modifier = Modifier) {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    if (frame == null && onFirstFailure != null) {
+                        withContext(Dispatchers.Main) { onFirstFailure() }
+                        return@withContext
+                    }
                     error = "Caméra indisponible : ${e.message}"
                 }
                 delay(3_000)

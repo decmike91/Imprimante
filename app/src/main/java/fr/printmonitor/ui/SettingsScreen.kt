@@ -60,7 +60,7 @@ fun SettingsScreen(onDone: () -> Unit) {
                 val pc = c.printer(id)
                 fun set(n: PrinterConfig) { c = c.with(id, n) }
                 val model = if (id.type == PrinterType.ELEGOO_CC) "Elegoo Centauri Carbon" else "Creality K1"
-                val camDefault = if (id.type == PrinterType.ELEGOO_CC) "http://IP:3031/video" else "http://IP:8080/?action=stream"
+                val camDefault = if (id.type == PrinterType.ELEGOO_CC) "http://IP:3031/video" else "8080, sinon page http://IP:8000/"
 
                 Section("$model — ${c.displayName(id)}")
                 OutlinedTextField(
