@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les imprimantes et prises Tapo ne parlent qu'en HTTP/WS non chiffré sur le réseau local.
+     Le chiffrement à distance est assuré par le VPN (Tailscale ou WireGuard), jamais par une ouverture de port. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
