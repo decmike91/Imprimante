@@ -57,8 +57,9 @@ fun Dashboard(onSettings: () -> Unit) {
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (cfg.elegooIp.isNotBlank()) item { PrinterCard(PrinterId.ELEGOO) }
-            if (cfg.k1Ip.isNotBlank()) item { PrinterCard(PrinterId.K1) }
+            PrinterId.entries.filter { cfg.printer(it).ip.isNotBlank() }.forEach { id ->
+                item(key = id.name) { PrinterCard(id) }
+            }
             if (cfg.isEmpty) item { Text("Aucune imprimante configurée. Ouvrez les réglages.") }
         }
     }

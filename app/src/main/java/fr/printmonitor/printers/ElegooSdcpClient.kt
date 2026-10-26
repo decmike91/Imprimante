@@ -19,6 +19,7 @@ import java.util.UUID
  */
 class ElegooSdcpClient(
     private val ip: String,
+    private val cameraOverride: String,
     target: MutableStateFlow<PrinterState>,
     http: OkHttpClient,
     scope: CoroutineScope,
@@ -29,7 +30,7 @@ class ElegooSdcpClient(
     @Volatile private var mainboardId = ""
 
     override fun onOpened() {
-        target.update { it.copy(cameraUrl = "http://$ip:3031/video") }
+        target.update { it.copy(cameraUrl = cameraOverride.ifBlank { "http://$ip:3031/video" }) }
         sendCmd(CMD_ATTRIBUTES)
         sendCmd(CMD_STATUS)
         sendCmd(CMD_VIDEO, JSONObject().put("Enable", 1))

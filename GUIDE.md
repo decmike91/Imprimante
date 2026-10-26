@@ -1,6 +1,6 @@
 # PrintMonitor — Installation et configuration réseau (local + Livebox 5)
 
-Surveillance depuis Android d'une **Elegoo Centauri Carbon**, d'une **Creality K1** et de leurs **prises Tapo**, avec les caméras intégrées.
+Surveillance depuis Android de **deux Elegoo Centauri Carbon**, d'une **Creality K1** et de leurs **prises Tapo**, avec les caméras intégrées.
 
 ## 1. Ce que fait l'application
 
@@ -45,10 +45,12 @@ Sans IP fixe, une imprimante peut changer d'adresse après un redémarrage et l'
 | Appareil | IP |
 |---|---|
 | Raspberry Pi / NAS / PC (VPN, étape 4) | 192.168.1.10 |
-| Elegoo Centauri Carbon | 192.168.1.50 |
+| Elegoo Centauri Carbon n° 1 | 192.168.1.50 |
 | Creality K1 | 192.168.1.51 |
-| Prise Tapo de la Centauri | 192.168.1.52 |
+| Prise Tapo de la Centauri n° 1 | 192.168.1.52 |
 | Prise Tapo de la K1 | 192.168.1.53 |
+| Elegoo Centauri Carbon n° 2 | 192.168.1.54 |
+| Prise Tapo de la Centauri n° 2 | 192.168.1.55 |
 
 4. Redémarrer chaque appareil (ou couper/rallumer sa prise) pour qu'il prenne sa nouvelle adresse. Vérifier l'IP sur l'écran de chaque imprimante.
 
@@ -60,7 +62,7 @@ Sans IP fixe, une imprimante peut changer d'adresse après un redémarrage et l'
 
 ### 3.4 Remplir les réglages de l'application
 
-Saisir les IP de l'étape 3.2, l'e-mail et le mot de passe Tapo, puis **Enregistrer**. Le tableau de bord doit afficher les deux imprimantes en ligne en quelques secondes (sur le Wi-Fi de la maison).
+Saisir les IP de l'étape 3.2 (un nom personnalisé peut être donné à chaque imprimante pour distinguer les deux Centauri), l'e-mail et le mot de passe Tapo, puis **Enregistrer**. Le tableau de bord doit afficher les deux imprimantes en ligne en quelques secondes (sur le Wi-Fi de la maison).
 
 ## 4. Accès depuis l'extérieur
 

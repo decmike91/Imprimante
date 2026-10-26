@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import fr.printmonitor.MonitorHub
 import fr.printmonitor.MonitorService
 import fr.printmonitor.data.ConfigStore
+import fr.printmonitor.data.PrinterConfig
+import fr.printmonitor.data.PrinterId
+import fr.printmonitor.data.PrinterType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,21 +52,32 @@ fun SettingsScreen(onDone: () -> Unit) {
             Modifier.fillMaxSize().padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Section("Elegoo Centauri Carbon")
-            Ip("Adresse IP de l'imprimante", c.elegooIp) { c = c.copy(elegooIp = it) }
-            Ip("Adresse IP de la prise Tapo", c.plugElegooIp) { c = c.copy(plugElegooIp = it) }
-            Toggle("Couper la prise après impression (buse < 50 °C)", c.autoOffElegoo) { c = c.copy(autoOffElegoo = it) }
-
-            Section("Creality K1")
-            Ip("Adresse IP de l'imprimante", c.k1Ip) { c = c.copy(k1Ip = it) }
-            OutlinedTextField(
-                c.k1CameraUrl, { c = c.copy(k1CameraUrl = it) },
-                label = { Text("URL caméra (vide = http://IP:8080/?action=stream)") },
-                singleLine = true, modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            Text(
+                "Laisser l'adresse IP vide pour masquer une imprimante.",
+                style = MaterialTheme.typography.bodySmall,
             )
-            Ip("Adresse IP de la prise Tapo", c.plugK1Ip) { c = c.copy(plugK1Ip = it) }
-            Toggle("Couper la prise après impression (buse < 50 °C)", c.autoOffK1) { c = c.copy(autoOffK1 = it) }
+            PrinterId.entries.forEach { id ->
+                val pc = c.printer(id)
+                fun set(n: PrinterConfig) { c = c.with(id, n) }
+                val model = if (id.type == PrinterType.ELEGOO_CC) "Elegoo Centauri Carbon" else "Creality K1"
+                val camDefault = if (id.type == PrinterType.ELEGOO_CC) "http://IP:3031/video" else "http://IP:8080/?action=stream"
+
+                Section("$model — ${c.displayName(id)}")
+                OutlinedTextField(
+                    pc.name, { set(pc.copy(name = it)) },
+                    label = { Text("Nom affiché") }, placeholder = { Text(id.defaultName) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Ip("Adresse IP de l'imprimante", pc.ip) { set(pc.copy(ip = it)) }
+                OutlinedTextField(
+                    pc.cameraUrl, { set(pc.copy(cameraUrl = it)) },
+                    label = { Text("URL caméra (vide = $camDefault)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+                Ip("Adresse IP de la prise Tapo", pc.plugIp) { set(pc.copy(plugIp = it)) }
+                Toggle("Couper la prise après impression (buse < 50 °C)", pc.autoOff) { set(pc.copy(autoOff = it)) }
+            }
 
             Section("Compte Tapo")
             Text(

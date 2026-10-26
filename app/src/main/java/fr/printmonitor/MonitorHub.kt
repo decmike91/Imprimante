@@ -6,6 +6,7 @@ import fr.printmonitor.data.PlugState
 import fr.printmonitor.data.PrintStatus
 import fr.printmonitor.data.PrinterId
 import fr.printmonitor.data.PrinterState
+import fr.printmonitor.data.PrinterType
 import fr.printmonitor.printers.CrealityK1Client
 import fr.printmonitor.printers.ElegooSdcpClient
 import fr.printmonitor.printers.PrinterClient
@@ -42,14 +43,8 @@ object MonitorHub {
     private val _config = MutableStateFlow(AppConfig())
     val config: StateFlow<AppConfig> = _config.asStateFlow()
 
-    private val printerFlows = mapOf(
-        PrinterId.ELEGOO to MutableStateFlow(PrinterState("Elegoo Centauri Carbon")),
-        PrinterId.K1 to MutableStateFlow(PrinterState("Creality K1")),
-    )
-    private val plugFlows = mapOf(
-        PrinterId.ELEGOO to MutableStateFlow(PlugState()),
-        PrinterId.K1 to MutableStateFlow(PlugState()),
-    )
+    private val printerFlows = PrinterId.entries.associateWith { MutableStateFlow(PrinterState(it.defaultName)) }
+    private val plugFlows = PrinterId.entries.associateWith { MutableStateFlow(PlugState()) }
     fun printer(id: PrinterId): StateFlow<PrinterState> = printerFlows.getValue(id)
     fun plug(id: PrinterId): StateFlow<PlugState> = plugFlows.getValue(id)
 
@@ -76,18 +71,19 @@ object MonitorHub {
         plugClients.clear()
         plugPoll?.cancel()
 
-        if (cfg.elegooIp.isNotBlank()) clients[PrinterId.ELEGOO] =
-            ElegooSdcpClient(cfg.elegooIp, printerFlows.getValue(PrinterId.ELEGOO), wsHttp, scope)
-        if (cfg.k1Ip.isNotBlank()) clients[PrinterId.K1] =
-            CrealityK1Client(cfg.k1Ip, cfg.k1CameraUrl, printerFlows.getValue(PrinterId.K1), wsHttp, scope)
-        clients.values.forEach { it.start() }
-
-        if (cfg.tapoEmail.isNotBlank() && cfg.tapoPassword.isNotBlank()) {
-            if (cfg.plugElegooIp.isNotBlank()) plugClients[PrinterId.ELEGOO] =
-                TapoKlapClient(cfg.plugElegooIp, cfg.tapoEmail, cfg.tapoPassword, tapoHttp)
-            if (cfg.plugK1Ip.isNotBlank()) plugClients[PrinterId.K1] =
-                TapoKlapClient(cfg.plugK1Ip, cfg.tapoEmail, cfg.tapoPassword, tapoHttp)
+        val tapoOk = cfg.tapoEmail.isNotBlank() && cfg.tapoPassword.isNotBlank()
+        PrinterId.entries.forEach { id ->
+            val pc = cfg.printer(id)
+            val flow = printerFlows.getValue(id)
+            flow.update { it.copy(name = cfg.displayName(id)) }
+            if (pc.ip.isNotBlank()) clients[id] = when (id.type) {
+                PrinterType.ELEGOO_CC -> ElegooSdcpClient(pc.ip, pc.cameraUrl, flow, wsHttp, scope)
+                PrinterType.CREALITY_K1 -> CrealityK1Client(pc.ip, pc.cameraUrl, flow, wsHttp, scope)
+            }
+            if (tapoOk && pc.plugIp.isNotBlank()) plugClients[id] =
+                TapoKlapClient(pc.plugIp, cfg.tapoEmail, cfg.tapoPassword, tapoHttp)
         }
+        clients.values.forEach { it.start() }
         PrinterId.entries.forEach { id ->
             plugFlows.getValue(id).value = PlugState(configured = plugClients.containsKey(id))
         }
@@ -163,10 +159,8 @@ object MonitorHub {
         }
     }
 
-    private fun autoOffEnabled(id: PrinterId) = when (id) {
-        PrinterId.ELEGOO -> _config.value.autoOffElegoo
-        PrinterId.K1 -> _config.value.autoOffK1
-    } && plugClients.containsKey(id)
+    private fun autoOffEnabled(id: PrinterId) =
+        _config.value.printer(id).autoOff && plugClients.containsKey(id)
 
     /** Attend que la buse soit sous 50 °C (ventilation de la tête), puis coupe la prise. */
     private fun scheduleAutoOff(id: PrinterId) {

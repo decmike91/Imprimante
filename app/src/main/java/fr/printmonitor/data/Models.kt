@@ -2,7 +2,13 @@ package fr.printmonitor.data
 
 import android.content.Context
 
-enum class PrinterId { ELEGOO, K1 }
+enum class PrinterType { ELEGOO_CC, CREALITY_K1 }
+
+enum class PrinterId(val type: PrinterType, val defaultName: String, val key: String) {
+    ELEGOO(PrinterType.ELEGOO_CC, "Centauri Carbon 1", "elegoo"),
+    ELEGOO2(PrinterType.ELEGOO_CC, "Centauri Carbon 2", "elegoo2"),
+    K1(PrinterType.CREALITY_K1, "Creality K1", "k1"),
+}
 
 enum class PrintStatus(val label: String) {
     OFFLINE("Hors ligne"),
@@ -41,20 +47,26 @@ data class PlugState(
     val error: String? = null,
 )
 
+data class PrinterConfig(
+    /** Nom affiché (vide = nom par défaut) */
+    val name: String = "",
+    val ip: String = "",
+    /** Vide = URL caméra par défaut du modèle */
+    val cameraUrl: String = "",
+    val plugIp: String = "",
+    val autoOff: Boolean = false,
+)
+
 data class AppConfig(
-    val elegooIp: String = "",
-    val k1Ip: String = "",
-    /** Laisser vide pour http://<ip K1>:8080/?action=stream */
-    val k1CameraUrl: String = "",
-    val plugElegooIp: String = "",
-    val plugK1Ip: String = "",
+    val printers: Map<PrinterId, PrinterConfig> = emptyMap(),
     val tapoEmail: String = "",
     val tapoPassword: String = "",
-    val autoOffElegoo: Boolean = false,
-    val autoOffK1: Boolean = false,
     val backgroundMonitoring: Boolean = true,
 ) {
-    val isEmpty get() = elegooIp.isBlank() && k1Ip.isBlank()
+    fun printer(id: PrinterId) = printers[id] ?: PrinterConfig()
+    fun displayName(id: PrinterId) = printer(id).name.ifBlank { id.defaultName }
+    fun with(id: PrinterId, pc: PrinterConfig) = copy(printers = printers + (id to pc))
+    val isEmpty get() = PrinterId.entries.all { printer(it).ip.isBlank() }
 }
 
 object ConfigStore {
@@ -62,31 +74,40 @@ object ConfigStore {
 
     fun load(ctx: Context): AppConfig {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        fun str(k: String, legacy: String? = null) =
+            p.getString(k, null) ?: legacy?.let { p.getString(it, null) } ?: ""
+        val printers = PrinterId.entries.associateWith { id ->
+            val k = id.key
+            val legacySuffix = k.replaceFirstChar { it.uppercase() } // ex. plugElegooIp, autoOffK1 (v1.0)
+            PrinterConfig(
+                name = str("${k}Name"),
+                ip = str("${k}Ip"),
+                cameraUrl = str("${k}CameraUrl"),
+                plugIp = str("${k}PlugIp", "plug${legacySuffix}Ip"),
+                autoOff = p.getBoolean("${k}AutoOff", p.getBoolean("autoOff$legacySuffix", false)),
+            )
+        }
         return AppConfig(
-            elegooIp = p.getString("elegooIp", "")!!,
-            k1Ip = p.getString("k1Ip", "")!!,
-            k1CameraUrl = p.getString("k1CameraUrl", "")!!,
-            plugElegooIp = p.getString("plugElegooIp", "")!!,
-            plugK1Ip = p.getString("plugK1Ip", "")!!,
-            tapoEmail = p.getString("tapoEmail", "")!!,
-            tapoPassword = p.getString("tapoPassword", "")!!,
-            autoOffElegoo = p.getBoolean("autoOffElegoo", false),
-            autoOffK1 = p.getBoolean("autoOffK1", false),
+            printers = printers,
+            tapoEmail = str("tapoEmail"),
+            tapoPassword = str("tapoPassword"),
             backgroundMonitoring = p.getBoolean("backgroundMonitoring", true),
         )
     }
 
     fun save(ctx: Context, c: AppConfig) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("elegooIp", c.elegooIp.trim())
-            .putString("k1Ip", c.k1Ip.trim())
-            .putString("k1CameraUrl", c.k1CameraUrl.trim())
-            .putString("plugElegooIp", c.plugElegooIp.trim())
-            .putString("plugK1Ip", c.plugK1Ip.trim())
-            .putString("tapoEmail", c.tapoEmail.trim())
+        val e = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        PrinterId.entries.forEach { id ->
+            val pc = c.printer(id)
+            val k = id.key
+            e.putString("${k}Name", pc.name.trim())
+                .putString("${k}Ip", pc.ip.trim())
+                .putString("${k}CameraUrl", pc.cameraUrl.trim())
+                .putString("${k}PlugIp", pc.plugIp.trim())
+                .putBoolean("${k}AutoOff", pc.autoOff)
+        }
+        e.putString("tapoEmail", c.tapoEmail.trim())
             .putString("tapoPassword", c.tapoPassword)
-            .putBoolean("autoOffElegoo", c.autoOffElegoo)
-            .putBoolean("autoOffK1", c.autoOffK1)
             .putBoolean("backgroundMonitoring", c.backgroundMonitoring)
             .apply()
     }
