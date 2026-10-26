@@ -36,6 +36,10 @@ data class PrinterState(
     val remainingSec: Long? = null,
     val cameraUrl: String? = null,
     val message: String? = null,
+    /** null = état inconnu */
+    val lightOn: Boolean? = null,
+    /** true = fin de filament détectée ; null = capteur non exposé par l'imprimante */
+    val filamentRunout: Boolean? = null,
 )
 
 data class PlugState(

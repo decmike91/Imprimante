@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
@@ -107,28 +109,76 @@ private fun PrinterCard(id: PrinterId) {
                 style = MaterialTheme.typography.bodyMedium,
             )
 
-            if (s.status == PrintStatus.PRINTING || s.status == PrintStatus.PAUSED) {
+            val online = s.status != PrintStatus.OFFLINE
+            val busy = s.status == PrintStatus.PRINTING || s.status == PrintStatus.PAUSED
+
+            // ---- Avancement (toujours affiché) ----
+            val p = when {
+                busy -> (s.progress ?: 0).coerceIn(0, 100)
+                s.status == PrintStatus.FINISHED -> 100
+                else -> 0
+            }
+            Text(
+                "Avancement : $p %" + (if (busy) s.layer?.let { " · couche $it/${s.totalLayers ?: "?"}" } ?: "" else ""),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            LinearProgressIndicator(
+                progress = { p / 100f },
+                modifier = Modifier.fillMaxWidth().height(10.dp),
+                color = statusColor(if (busy) s.status else PrintStatus.FINISHED),
+            )
+            if (busy || s.status == PrintStatus.FINISHED) {
                 s.fileName?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                val p = (s.progress ?: 0).coerceIn(0, 100)
-                LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
+            }
+            if (busy) {
                 val end = s.remainingSec?.let {
                     SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(System.currentTimeMillis() + it * 1000))
                 }
                 Text(
-                    "$p %" + (s.layer?.let { " · couche $it/${s.totalLayers ?: "?"}" } ?: "") +
-                        " · écoulé ${dur(s.elapsedSec)} · reste ${dur(s.remainingSec)}" +
-                        (end?.let { " · fin ≈ $it" } ?: ""),
+                    "Écoulé ${dur(s.elapsedSec)} · reste ${dur(s.remainingSec)}" + (end?.let { " · fin ≈ $it" } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (s.status == PrintStatus.PRINTING)
-                        Button(onClick = { MonitorHub.pause(id) }) { Text("Pause") }
-                    else
-                        Button(onClick = { MonitorHub.resume(id) }) { Text("Reprendre") }
-                    OutlinedButton(onClick = {
-                        confirm = "Arrêter définitivement l'impression en cours ?" to { MonitorHub.cancel(id) }
-                    }) { Text("Arrêter") }
-                }
+            }
+
+            // ---- Boutons Pause/Reprendre + Arrêt (toujours affichés, actifs pendant une impression) ----
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (s.status == PrintStatus.PAUSED)
+                    Button(onClick = { MonitorHub.resume(id) }, modifier = Modifier.weight(1f)) { Text("Reprendre") }
+                else
+                    OutlinedButton(
+                        onClick = { MonitorHub.pause(id) },
+                        enabled = s.status == PrintStatus.PRINTING,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Pause") }
+                Button(
+                    onClick = { confirm = "Arrêter définitivement l'impression en cours ?" to { MonitorHub.cancel(id) } },
+                    enabled = busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935), contentColor = Color.White),
+                    modifier = Modifier.weight(1f),
+                ) { Text("Arrêter l'impression") }
+            }
+
+            // ---- Lumière interne ----
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Lumière interne", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = s.lightOn == true,
+                    enabled = online,
+                    onCheckedChange = { MonitorHub.setLight(id, it) },
+                )
+            }
+
+            // ---- Détecteur de fin de filament ----
+            val (filText, filColor) = when {
+                !online -> "–" to Color.Gray
+                s.filamentRunout == true -> "⚠️ Fin de filament détectée" to Color(0xFFE53935)
+                s.filamentRunout == false -> "Filament présent" to Color(0xFF43A047)
+                s.status == PrintStatus.PAUSED -> "⚠️ En pause : fin de filament possible, vérifier la bobine" to Color(0xFFFB8C00)
+                else -> "Pas d'alerte (pause automatique si fin de filament)" to Color(0xFF757575)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Filament", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(filText, color = filColor, style = MaterialTheme.typography.bodySmall)
             }
 
             s.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }

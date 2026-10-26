@@ -98,6 +98,7 @@ object MonitorHub {
     fun pause(id: PrinterId) = clients[id]?.pause()
     fun resume(id: PrinterId) = clients[id]?.resume()
     fun cancel(id: PrinterId) = clients[id]?.cancel()
+    fun setLight(id: PrinterId, on: Boolean) = clients[id]?.setLight(on)
 
     fun setPlug(id: PrinterId, on: Boolean) {
         scope.launch { setPlugNow(id, on) }
@@ -136,7 +137,12 @@ object MonitorHub {
     /** Alertes sur changement d'état + extinction automatique après impression. */
     private fun watchTransitions(id: PrinterId) = scope.launch {
         var prev: PrintStatus? = null
+        var prevRunout: Boolean? = null
         printerFlows.getValue(id).collect { s ->
+            if (s.filamentRunout == true && prevRunout == false) {
+                Notifier.alert(appContext, id, "${s.name} : fin de filament", "Recharger le filament puis reprendre l'impression")
+            }
+            prevRunout = s.filamentRunout
             val p = prev
             prev = s.status
             if (p == null || p == s.status) return@collect

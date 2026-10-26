@@ -45,6 +45,13 @@ class ElegooSdcpClient(
     override fun resume() { sendCmd(CMD_RESUME) }
     override fun cancel() { sendCmd(CMD_STOP) }
 
+    /** Cmd 403 avec {"LightStatus":{"SecondLight":0|1}} — éclairage LED du caisson. */
+    override fun setLight(on: Boolean) {
+        sendCmd(CMD_PARAMS, JSONObject().put("LightStatus", JSONObject().put("SecondLight", if (on) 1 else 0)))
+        target.update { it.copy(lightOn = on) } // affichage immédiat, confirmé au prochain statut
+        sendCmd(CMD_STATUS)
+    }
+
     private fun sendCmd(cmd: Int, data: JSONObject = JSONObject()) {
         val inner = JSONObject()
             .put("Cmd", cmd)
@@ -100,6 +107,9 @@ class ElegooSdcpClient(
                 bed = st.dbl("TempOfHotbed") ?: s.bed,
                 bedTarget = st.dbl("TempTargetHotbed") ?: s.bedTarget,
                 chamber = st.dbl("TempOfBox") ?: s.chamber,
+                lightOn = st.optJSONObject("LightStatus")?.int("SecondLight")?.let { it == 1 } ?: s.lightOn,
+                // La CC1 n'expose pas l'état du capteur : une fin de filament se traduit par une pause.
+                filamentRunout = null,
                 progress = pi?.int("Progress") ?: s.progress,
                 fileName = pi?.optString("Filename")?.takeIf { it.isNotBlank() } ?: s.fileName,
                 layer = pi?.int("CurrentLayer") ?: s.layer,
@@ -118,5 +128,6 @@ class ElegooSdcpClient(
         const val CMD_STOP = 130
         const val CMD_RESUME = 131
         const val CMD_VIDEO = 386
+        const val CMD_PARAMS = 403
     }
 }

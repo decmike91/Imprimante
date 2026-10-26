@@ -31,7 +31,7 @@ class CrealityK1Client(
 
     override fun onOpened() {
         target.update { it.copy(cameraUrl = cameraOverride.ifBlank { "http://$ip:8080/?action=stream" }) }
-        send(JSONObject().put("method", "get").put("params", JSONObject().put("reqPrinterPara", 1)).toString())
+        send(JSONObject().put("method", "get").put("params", JSONObject().put("ReqPrinterPara", 1)).toString())
     }
 
     override fun keepAlive() {
@@ -42,6 +42,10 @@ class CrealityK1Client(
     override fun pause() = set("pause", 1)
     override fun resume() = set("pause", 0)
     override fun cancel() = set("stop", 1)
+    override fun setLight(on: Boolean) {
+        set("lightSw", if (on) 1 else 0)
+        target.update { it.copy(lightOn = on) }
+    }
 
     private fun set(key: String, value: Int) {
         send(JSONObject().put("method", "set").put("params", JSONObject().put(key, value)).toString())
@@ -75,6 +79,9 @@ class CrealityK1Client(
                 bed = o.dbl("bedTemp0") ?: s.bed,
                 bedTarget = o.dbl("targetBedTemp0") ?: s.bedTarget,
                 chamber = o.dbl("boxTemp") ?: s.chamber,
+                lightOn = o.int("lightSw")?.let { it == 1 } ?: s.lightOn,
+                // materialStatus : 0 = filament présent, 1 = fin de filament détectée
+                filamentRunout = o.int("materialStatus")?.let { it == 1 } ?: s.filamentRunout,
                 progress = o.int("printProgress") ?: s.progress,
                 fileName = o.optString("printFileName").takeIf { it.isNotBlank() }?.substringAfterLast('/') ?: s.fileName,
                 layer = o.int("layer") ?: s.layer,

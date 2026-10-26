@@ -24,6 +24,7 @@ interface PrinterClient {
     fun pause()
     fun resume()
     fun cancel()
+    fun setLight(on: Boolean)
 }
 
 /**
